@@ -1,0 +1,104 @@
+<head>
+
+    <!--
+    table, th, td {
+      border: 1px solid black;
+      text-align: center;
+    }
+    -->
+<style>
+table {
+  align: center ;
+  padding: 25;
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+td {
+  align: center;
+  padding: 10;
+  spacing: 0;
+}
+</style>
+<meta http-equiv="refresh" content="30">
+</head>
+<body>
+<a href="/">STATS</a> <a href="/redalert">RED_ALERT</a>
+<hr>
+<H1>Lotto Stats</H1>
+{{ TIME }}
+<hr>
+<h4>Account Stats</h4>
+<table>
+    <tr>
+        <td></td>
+        <td>Intial</td>
+        <td>Current</td>
+        <td>% Change</td>
+    </tr>
+    <tr>
+        <td>NLV</td>
+        <td>{{ ACCDATA.Starting_NLV }}</td>
+        <td>{{ ACCDATA.NLV }}</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>BP</td>
+        <td></td>
+       <!-- <td>{{ ACCDATA.Starting_BP }}</td> -->
+        <td>{{ ACCDATA.Available_BP }}</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>BPu</td>
+        <td></td>
+        <!-- <td>{{ ACCDATA.Starting_BPu }}%</td> -->
+        <td>{{ ACCDATA.BPu }}%</td>
+        <td></td>
+    </tr>
+
+</table>
+<h3>Order Count</h3>
+<hr>
+<b>Today's Orders: </b>{{ ORDER_COUNT }}
+
+<h3>Premium Today</h3>
+<hr>
+<b>Today's Premium: ${{ PREMIUM_TODAY }} ( {{ PREMIUM_TODAY_PCT }}%)</b>
+
+<h3>SUT</h3>
+<hr>
+<!-- <h4>CALL</h4> -->
+<!--
+<table>
+    <tr>
+        <td>Method</td>
+        <td># Contacts</td>
+        <td>Max</td>
+        <td>Remaining</td>
+        <td>Percentage</td>
+    </tr>
+    {% for item in sut %}
+        <tr>
+            <td>{{ item.type }}</td>
+            <td>{{ item.CALL_COUNT }}</td>
+            <td>{{ ACCDATA.Max_Short_Units }}</td>
+            <td>{{ item.CALL_REMAINING }}</td>
+            <td>{{ item.CALL_PCT }}</td>
+        </tr>
+    {% endfor %}
+</table>
+-->
+
+{{ SUTDF|safe }}
+
+<h3>Outstanding Premium</h3>
+<hr>
+
+{{ PREMIUM_BY_EXP|safe }}
+
+<H4>RED_ALERT!</H4>
+<hr>
+
+{{ REDALERT|safe }}
+
+</body>
