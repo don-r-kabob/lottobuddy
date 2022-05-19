@@ -1,5 +1,7 @@
 #!/usr/bin/bash
 
+tag="latest"
+
 configpath=$1
 container="donrkabob/lottobuddy:latest"
 
