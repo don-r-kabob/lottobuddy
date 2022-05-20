@@ -63,6 +63,10 @@ def dashboard():
     conf = CONFIG
     client = tda.auth.easy_client(conf.apikey, conf.callbackuri, conf.tokenpath)
     calc_account_data(client, conf, ACCOUNT_DATA)
+    acc_json = client.get_account(conf.accountnum).json()
+    fh=open("account_dump.json",'w')
+    fh.write(json.dumps(acc_json))
+    fh.close()
     acc_json = client.get_account(conf.accountnum, fields=[FIELDS.POSITIONS]).json()
     #print(accounts.text)
     accdata = acc_json['securitiesAccount']
@@ -133,7 +137,7 @@ def get_red_alert_df(client: TDClient, position_data):
     pdf['quantity'] = (pdf['longQuantity'] - pdf['shortQuantity'])
     pdf['currentValue'] = (pdf['marketValue']/abs(pdf['quantity']))/100
     pdf['pnl'] = pdf['averagePrice']/pdf['currentValue']
-    pdf['otm'] = 0.0
+    pdf['otm'] = -1
 
     pdf['percentChange'] = (pdf['averagePrice']+pdf['currentValue'])/pdf['averagePrice']*100
     x = pdf['symbol'].str.split("_", expand=True).iloc[:,1].str.slice(start=7).astype(float)
@@ -145,8 +149,7 @@ def get_red_alert_df(client: TDClient, position_data):
     pdf['ctype'] = pdf['symbol'].str.split("_", expand=True).iloc[:, 1].str.slice(start=6, stop=7).astype(str)
     #pdf['edate'] = pd.to_datetime(pdf['symbol'].str.split("_", expand=True).iloc[:,1].str.slice(start=0, stop=6), format='%m%d%y', errors='ignore')
     #pdf['dte'] = (pdf['edate']-datetime.date.today()).dt.days
-    pdf.loc[pdf['ctype'] == 'C', 'otm'] = (pdf['strikePrice']/pdf['currentPrice'])-1
-    pdf.loc[pdf['ctype'] == 'P', 'otm'] = (pdf['currentPrice']/pdf['strikePrice'])-1
+    pdf['otm'] = abs((pdf['strikePrice']/pdf['currentPrice'])-1)
     subdf = pdf.loc[
         (pdf['assetType']=="OPTION")
         & (pdf['quantity'] < 0),
