@@ -7,6 +7,8 @@ incase you would like to review. Unfortunately permission allow a lot of account
 What you will need:
 
 - TDA API Account (step 1)
+  
+  	- Both the API key for the app you register and the callback url
 - PM Account number
 - Docker (step 2)
 
@@ -15,32 +17,41 @@ What you will need:
 	- Create a callback uri 
 		- use "https://localhost" if you don't have a better one, it won't matter, just need to be something
 2. Download docker desktop and install for your OS (https://www.docker.com/products/docker-desktop)
-3. Set up folder with scripts
-	- Create a folder to store runscripts and server config file
-4. Download docker container
-    - open terminal
-    - cd to app directory
-    - run "bash download_container.sh"
-5. Set up account config
-	- Open terminal
-	- cd to directory where you want to store the config file
-	- run "mkdir config"
-	- run: "bash setup.sh \`pwd\`/config"
-6. Set up API hookup
-	- Open terminal
-	- cd to directory where you want to store the config file
-	- mkdir config
-	- run: "bash newtoken.sh \`pwd\`/config"
-7. Run server
-	- cd to directory where you want to store the config file
-	- run: "bash run.sh \`pwd\`/config"
 
 Now you can start or stop the server from docker desktop or the command line
 - start "docker start lottobuddy"
 - stop "docker stop lottobuddy"
 - Docker desktop use the play/stop button
 
-# No docker cause i'm cool instructions:
+## Docker instructions
+
+Note you will need to use the full path to the directory with
+the configuration file and API access token these instructions will
+assume that you are putting them in the "config" folder in the same directory
+
+1. Download docker desktop
+2. Pull the container
+
+	docker pull donrkabob/lottobuddy:latest
+
+3. Create the config file
+
+		mkdir config
+		docker run -p 5000:5000 -v `pwd`/config:/config donrkabob/lottobuddy:latest --setup --tdaconfig /config/tda-config.json --configfile /config/lotto_config.json
+   	
+4. Set up API access refresh token
+
+		docker run -p 5000:5000 -v `pwd`/config:/config donrkabob/lottobuddy:latest --newtoken --tdaconfig /config/tda-config.json --configfile /config/lotto_config.json
+
+5. Run the thing!
+
+   	docker run -p 5000:5000 -v `pwd`/config:/config donrkabob/lottobuddy:latest --newtoken --tdaconfig /config/tda-config.json --configfile /config/lotto_config.json
+		
+		
+
+	
+
+## No docker cause i'm cool instructions:
 
 the libraries you need are in the docker file and thye will maintain the most up to date requirements.
 
@@ -53,7 +64,7 @@ With these installed you can run:
 2. python3 flask_buddy.py --newtoken
 3. python3 flask_buddy.py --configfile 
 
-### Mac instructions
+### Step-by-step Mac instructions
 
 1. Do you have git installed?
 	- Try the command: 
