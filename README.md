@@ -75,10 +75,10 @@ With these installed you can run:
 	  	
 			xcode-select --install
 	
-2. OK do you need pip?
+2. OK - do you need pip?
 
 		curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-		python3 get-pip.py
+		sudo python3 get-pip.py
 
 3. Install packages
 	
