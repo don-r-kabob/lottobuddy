@@ -16,12 +16,9 @@ What you will need:
 	- Create an app, name doesn't matter
 	- Create a callback uri 
 		- use "https://localhost" if you don't have a better one, it won't matter, just need to be something
-2. Download docker desktop and install for your OS (https://www.docker.com/products/docker-desktop)
+2. If you want to use docker
+   - Download docker desktop and install for your OS (https://www.docker.com/products/docker-desktop)
 
-Now you can start or stop the server from docker desktop or the command line
-- start "docker start lottobuddy"
-- stop "docker stop lottobuddy"
-- Docker desktop use the play/stop button
 
 ## Docker instructions
 
@@ -29,12 +26,15 @@ Note you will need to use the full path to the directory with
 the configuration file and API access token these instructions will
 assume that you are putting them in the "config" folder in the same directory
 
+These commands are for *nix systems. If anyone could help me with windows instructions I would appreciate it
+I will gladly make/maintain batch scripts for windows once I can test out what should be in it
+
 1. Download docker desktop
 2. Pull the container
 
 	docker pull donrkabob/lottobuddy:latest
 
-3. Create the config file
+3. Create the config file (TDA api app key/url)
 
 		mkdir config
 		docker run -p 5000:5000 -v `pwd`/config:/config donrkabob/lottobuddy:latest --setup --tdaconfig /config/tda-config.json --configfile /config/lotto_config.json
@@ -45,7 +45,7 @@ assume that you are putting them in the "config" folder in the same directory
 
 5. Run the thing!
 
-   	docker run -p 5000:5000 -v `pwd`/config:/config donrkabob/lottobuddy:latest --newtoken --tdaconfig /config/tda-config.json --configfile /config/lotto_config.json
+		docker run -p 5000:5000 -v `pwd`/config:/config donrkabob/lottobuddy:latest --newtoken --tdaconfig /config/tda-config.json --configfile /config/lotto_config.json
 		
 		
 
@@ -53,16 +53,20 @@ assume that you are putting them in the "config" folder in the same directory
 
 ## No docker cause i'm cool instructions:
 
-the libraries you need are in the docker file and thye will maintain the most up to date requirements.
+the libraries you need are in the docker file and they will maintain the most up to date requirements.
 
-pip3 install pandas
-pip3 install tda-api flask
+### General linux instruction
+
+Install libraries
+
+		pip3 install pandas
+		pip3 install tda-api flask
 
 With these installed you can run:
 
-1. python3 flask_buddy.py --setup
-2. python3 flask_buddy.py --newtoken
-3. python3 flask_buddy.py --configfile 
+	python3 flask_buddy.py --setup
+	python3 flask_buddy.py --newtoken
+	python3 flask_buddy.py 
 
 ### Step-by-step Mac instructions
 
@@ -70,12 +74,17 @@ With these installed you can run:
 	- Try the command: 
 	  
 			which git
-	  
+	
+	- See if you have python3
+	
+			which python3
+	
+	- If it return nothing then it is not install otherwise it will print a system path
 	- If it gives you an error you don't and let's install command line tools from apple 
 	  	
 			xcode-select --install
 	
-2. OK - do you need pip?
+2. OK - do you need pip? If running "pip3" does not work then below will install pip
 
 		curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
 		sudo python3 get-pip.py
@@ -105,16 +114,13 @@ With these installed you can run:
 
 		python3 flask_buddy.py
 
-
-	
-
-# Using
+## Using
 
 Most of the data is all on the dashboard. There is a link strip on top 
 - "STATS": The Main Dashboard
 - "RED_ALERT": list all positions < 40% OTM
 
-# File Formats
+## File Formats
 
 config file (json)
 
@@ -125,4 +131,5 @@ config file (json)
 		"tokenpath": "<API token file path>"
 	}
 
-tokenpath will be set automatically, but can be changed manually if desired.
+tokenpath will be set automatically, but can be changed manually either by hand
+in the config file or by command line option if desired.
