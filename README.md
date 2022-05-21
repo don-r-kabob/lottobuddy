@@ -99,7 +99,7 @@ With these installed you can run:
 
 7. Create token file
 
-		python3 flask_buddy.py --setup
+		python3 flask_buddy.py --newtoken
 
 8. Run it!
 
