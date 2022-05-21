@@ -53,6 +53,50 @@ With these installed you can run:
 2. python3 flask_buddy.py --newtoken
 3. python3 flask_buddy.py --configfile 
 
+### Mac instructions
+
+1. Do you have git installed?
+	- Try the command: 
+	  
+			which git
+	  
+	- If it gives you an error you don't and let's install command line tools from apple 
+	  	
+			xcode-select --install
+	
+2. OK do you need pip?
+
+		curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+		python3 get-pip.py
+
+3. Install packages
+	
+		pip3 install --user pandas
+		pip3 install --user tda-api flask
+
+4. Clone repo
+
+		git clone https://github.com/don-r-kebab/lottobuddy.git
+
+5. Move into that directory
+
+		cd lottobuddy
+
+6. Set up config file
+
+		python3 flask_buddy.py --setup
+
+7. Create token file
+
+		python3 flask_buddy.py --setup
+
+8. Run it!
+
+		python3 flask_buddy.py
+
+
+	
+
 # Using
 
 Most of the data is all on the dashboard. There is a link strip on top 
