@@ -353,7 +353,7 @@ def calc_account_data(client:TDClient, conf: Config, adata):
 def setup(conf: Config, tokenpath, cfile):
     cf = {}
     print("Let's setup the configuration!")
-    print("What was your APPKEY?: ")
+    print("What was your APP API KEY?: ")
     conf.apikey = input()
     print("What is you callback URL?")
     conf.callbackuri = input()
@@ -392,6 +392,7 @@ if __name__ == '__main__':
     ap.add_argument("--configfile", dest='configfile', default='./lotto_config.json')
     #ap.add_argument("--tdaconfig", dest="tdaconfig", default=None)
     ap.add_argument("--tdaconfig", dest="tdaconfig", default="./tda-config.json")
+    ap.add_argument("--port", dest="port", default=5000)
     # This is intended to enabling/disabling auto-refresh on dashboard
     # Currently not implemented and is hard coded to be true
     ap.add_argument("--update", default=False, action="store_true")
@@ -411,5 +412,5 @@ if __name__ == '__main__':
         client = setup_client(CONFIG)
         sys.exit(0)
     app.run(
-        host="0.0.0.0"
+        host="0.0.0.0", port=args['port']
     )
