@@ -1,8 +1,20 @@
-This is actually super simple. It's all set up to run in a docker container. I have included the source code
-incase you would like to review. Unfortunately permission allow a lot of account privileges. All this is doing is:
-    - pulling basic account stats
-    - transaction/order history
-    - position list
+# Features
+
+#### Dashboard
+
+1. Net premium sold today
+2. Net # of units for both calls and puts
+3. BP/NLV summary
+4. Order's used today (includes futures)
+5. List of outstanding premium and marks by expiration date
+	- Does not include closed positions (i.e. buybacks)
+6. 20 positions closest to being ITM
+
+#### Red alert
+
+1. List of all positions <40% OTM
+
+# Setup
 
 What you will need:
 
