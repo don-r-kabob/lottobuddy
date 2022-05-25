@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
+
 import datetime
 import sys
 import json
 import argparse
 import pandas as pd
-import os.path
 
 import tda
 from tda.client import Client as TDClient
@@ -57,7 +57,7 @@ ACCOUNT_DATA = {
 }
 
 app = Flask(__name__)
-@app.route("/")
+@app.route("/", methods=['POST', 'GET'])
 def dashboard():
     global ACCOUNT_DATA
     conf = CONFIG
@@ -118,11 +118,70 @@ def redalert(**argv):
         RED_ALERT=red_df.loc[red_df['otm'] < .4,:].to_html()
     )
 
+@app.route("/premium")
+def weekly_performance(history=45):
+    conf = CONFIG
+    client = get_client(conf)
+    start_date = TODAY - datetime.timedelta(days=history)
+    #print(start_date)
+    trade_res = client.get_transactions(
+        conf.accountnum,
+        start_date=start_date,
+        transaction_type=TRANSACTION_TYPES.TRADE
+    ).json()
+    d = {}
+    for entry in trade_res:
+        #"optionExpirationDate": "2022-06-03T05:00:00+0000",
+        try:
+            et = entry['transactionItem']
+            eti = entry['transactionItem']['instrument']
+            if entry['transactionItem']['instrument']['assetType'] == "OPTION":
+                try:
+                    exp_dt = datetime.datetime.strptime(
+                        eti['optionExpirationDate'].split("T")[0],
+                        "%Y-%m-%d"
+                    )
+                except AttributeError as ae:
+                    print(json.dumps(entry, indent=2))
+                    raise ae
+                if exp_dt not in d:
+                    d[exp_dt] =  {
+                        "CALL_OPENING": 0,
+                        "CALL_CLOSING": 0,
+                        "PUT_OPENING": 0,
+                        "PUT_CLOSING": 0
+                    }
+                    d[exp_dt]['dow'] = exp_dt.weekday()
+                key = "{}_{}".format(eti['putCall'], et['positionEffect'])
+                if key not in d[exp_dt]:
+                    d[exp_dt][key] = 0
+                d[exp_dt][key] += et['cost']
+            else:
+                continue
+        except KeyError as ke:
+            print(entry)
+        pass
+
+    df = pd.DataFrame.from_dict(d, orient="index")
+    df.fillna(0)
+    #df.replace(np.nan, 0)
+    df['CALL_TOTAL'] = df['CALL_OPENING']+df['CALL_CLOSING']
+    df['PUT_TOTAL'] = df['PUT_OPENING']+df['PUT_CLOSING']
+    df['TOTAL'] = df['CALL_TOTAL'] + df['PUT_TOTAL']
+    return render_template(
+        "expiration_performance.html",
+        EP=df.loc[
+           df['dow'] == 4,
+        :].drop(
+            columns=['dow']
+        ).sort_index().to_html()
+    )
+
 def get_red_alert_df(client: TDClient, position_data):
     #print(json.dumps(position_data, indent=4))
     flatten_positions(position_data)
     pdf = pd.DataFrame(position_data)
-    pdf['currentPrice'] = 0
+    pdf['spotPrice'] = 0
     symbols = pdf.loc[pdf['underlyingSymbol'].notnull(), 'underlyingSymbol'].unique()
     #print(len(symbols))
     #print(list(symbols))
@@ -131,7 +190,7 @@ def get_red_alert_df(client: TDClient, position_data):
     for ticker in quotesj:
         tdata = quotesj[ticker]
         curr_price[ticker] = tdata['lastPrice']
-        pdf.loc[pdf['underlyingSymbol']==ticker, 'currentPrice'] = tdata['lastPrice']
+        pdf.loc[pdf['underlyingSymbol']==ticker, 'spotPrice'] = tdata['lastPrice']
     #print(json.dumps(quotes.json(), indent=4))
     #print(pdf.head())
     pdf['quantity'] = (pdf['longQuantity'] - pdf['shortQuantity'])
@@ -140,8 +199,7 @@ def get_red_alert_df(client: TDClient, position_data):
     pdf['otm'] = -1
 
     pdf['percentChange'] = (pdf['averagePrice']+pdf['currentValue'])/pdf['averagePrice']*100
-    x = pdf['symbol'].str.split("_", expand=True).iloc[:,1].str.slice(start=7).astype(float)
-    pdf['strikePrice'] = x
+    pdf['strikePrice'] = pdf['symbol'].str.split("_", expand=True).iloc[:,1].str.slice(start=7).astype(float)
     # This is me wrestling with datetime in matrix form to calculate dte
     #pdf['emonth'] = pdf['symbol'].str.split("_", expand=True).iloc[:, 1].str.slice(start=0, stop=1).astype(int)
     #pdf['eday'] = pdf['symbol'].str.split("_", expand=True).iloc[:, 1].str.slice(start=2, stop=3).astype(int)
@@ -149,7 +207,7 @@ def get_red_alert_df(client: TDClient, position_data):
     pdf['ctype'] = pdf['symbol'].str.split("_", expand=True).iloc[:, 1].str.slice(start=6, stop=7).astype(str)
     #pdf['edate'] = pd.to_datetime(pdf['symbol'].str.split("_", expand=True).iloc[:,1].str.slice(start=0, stop=6), format='%m%d%y', errors='ignore')
     #pdf['dte'] = (pdf['edate']-datetime.date.today()).dt.days
-    pdf['otm'] = abs((pdf['strikePrice']/pdf['currentPrice'])-1)
+    pdf['otm'] = abs((pdf['strikePrice']/pdf['spotPrice'])-1)
     subdf = pdf.loc[
         (pdf['assetType']=="OPTION")
         & (pdf['quantity'] < 0),
@@ -159,9 +217,10 @@ def get_red_alert_df(client: TDClient, position_data):
             'quantity',
             'averagePrice',
             'currentValue',
-            'percentChange',
-            'currentPrice',
+            'ctype',
             'strikePrice',
+            #'percentChange',
+            'spotPrice',
             'otm'
         ]
     ].sort_values(['otm'])
@@ -300,10 +359,10 @@ def sut_test(pjson, sutmax=-1):
     unweighed_calc = {
         'CALL_COUNT': 0,
         'CALL_REMAINING': sutmax,
-        'CALL_PCT': 0,
+        'CALL_PCT_USED': 0,
         'PUT_COUNT': 0,
         'PUT_REMAINING': sutmax,
-        'PUT_PCT': 0,
+        'PUT_PCT_USED': 0,
         "type": "unweighted"
     }
     #print(json.dumps(unweighed_calc, indent=4))
@@ -328,8 +387,8 @@ def sut_test(pjson, sutmax=-1):
         unweighed_calc["CALL_REMAINING"] = sutmax
     if unweighed_calc["PUT_REMAINING"] > sutmax:
         unweighed_calc["PUT_REMAINING"] = sutmax
-    unweighed_calc["CALL_PCT"] = round((unweighed_calc['CALL_COUNT']/sutmax)*100, 2)
-    unweighed_calc["PUT_PCT"] = round((unweighed_calc['PUT_COUNT']/sutmax)*100, 2)
+    unweighed_calc["CALL_PCT_USED"] = -1*round((unweighed_calc['CALL_COUNT']/sutmax)*100, 2)
+    unweighed_calc["PUT_PCT_USED"] = -1*round((unweighed_calc['PUT_COUNT']/sutmax)*100, 2)
     res.append(unweighed_calc)
     return res
 
@@ -386,13 +445,41 @@ def get_funda(client: TDClient, symbol = None):
 if __name__ == '__main__':
     print("Starting LottoBuddy")
     ap = argparse.ArgumentParser()
-    ap.add_argument("--newtoken", action="store_true", dest='newtoken', default=False)
-    ap.add_argument("--setup", action="store_true", dest="setup", default=False)
+    ap.add_argument("--setup",
+                    action="store_true",
+                    dest="setup", default=False,
+                    help="""This command takes you through and input prompt 
+                    to generate a config file and then exits
+                    Required: TD API key, Callback URL, Account number
+                    This command automatically exits upon completion"""
+                    )
+    ap.add_argument("--newtoken", action="store_true", dest='newtoken', default=False,
+                    help="""Use this to create/grant permission to API access token and exit.
+                    Please follow instructions provided in the terminal
+                    """
+                    )
     #ap.add_argument("--configfile", dest='configfile', default=None)
-    ap.add_argument("--configfile", dest='configfile', default='./lotto_config.json')
+    ap.add_argument(
+        "--configfile",
+        dest='configfile',
+        default='./lotto_config.json',
+        metavar="[lotto_config.json]",
+        help="Configuration file with TDA APP data created with --setup"
+    )
     #ap.add_argument("--tdaconfig", dest="tdaconfig", default=None)
-    ap.add_argument("--tdaconfig", dest="tdaconfig", default="./tda-config.json")
-    ap.add_argument("--port", dest="port", default=5000)
+    ap.add_argument(
+        "--tdaconfig",
+        dest="tdaconfig",
+        default="./tda-config.json",
+        metavar="[tda-config.json]",
+        help="Config file name for where to store TDA API token. Default: ./tda-config.json")
+    ap.add_argument(
+        "--port",
+        dest="port",
+        default=5000,
+        metavar="int",
+        help="Change flask port from default 5000. This is important for Mac's because 5000 is taken by airply by default"
+    )
     # This is intended to enabling/disabling auto-refresh on dashboard
     # Currently not implemented and is hard coded to be true
     ap.add_argument("--update", default=False, action="store_true")
@@ -402,12 +489,9 @@ if __name__ == '__main__':
             raise Exception("Config file not specified")
         args['newtoken'] = True
         setup(CONFIG, args['tdaconfig'], args['configfile'])
-        #print(CONFIG)
-        #setup_client()
         sys.exit()
     else:
         CONFIG.read_config(args['configfile'])
-        #print(CONFIG)
     if args['newtoken'] is True:
         client = setup_client(CONFIG)
         sys.exit(0)
