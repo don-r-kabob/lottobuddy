@@ -134,7 +134,7 @@ Most of the data is all on the dashboard. There is a link strip on top
 
 ## File Formats
 
-config file (json)
+config file (format: JSON, default: 'lotto_config.json')
 
 	{
 		"apikey": "<API key>", 
