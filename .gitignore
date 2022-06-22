@@ -1,6 +1,14 @@
+*.swp
+nohup.out
 config/*
 lotto_buddy.json
 */lotto_config.json
 lotto_config.json
 */tda-config.json
 tda-config.json
+refresh.json
+txhistory_res.json
+position_res.json
+account_dump.json
+account_res.json
+*.pyc

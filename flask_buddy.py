@@ -72,6 +72,9 @@ def dashboard():
     accdata = acc_json['securitiesAccount']
     aid = accdata['accountId']
     positions = accdata['positions']
+    #fh = open("position_res.json",'w')
+    #fh.write(json.dumps(positions, indent=4))
+    #fh.close()
     try:
         todays_premium = round(get_premium_today(client, conf.accountnum)*100,2)
         todays_pct = round(todays_premium/ACCOUNT_DATA['NLV']*100,2)
@@ -130,6 +133,7 @@ def weekly_performance(history=45):
         transaction_type=TRANSACTION_TYPES.TRADE
     ).json()
     d = {}
+    c = {}
     for entry in trade_res:
         #"optionExpirationDate": "2022-06-03T05:00:00+0000",
         try:
@@ -141,6 +145,8 @@ def weekly_performance(history=45):
                         eti['optionExpirationDate'].split("T")[0],
                         "%Y-%m-%d"
                     )
+                    if (datetime.datetime.today() - exp_dt).days > 35:
+                        continue
                 except AttributeError as ae:
                     print(json.dumps(entry, indent=2))
                     raise ae
@@ -151,7 +157,14 @@ def weekly_performance(history=45):
                         "PUT_OPENING": 0,
                         "PUT_CLOSING": 0
                     }
+                    c[exp_dt] = {
+                        "LONG_CALLS": 0,
+                        "LONG_PUTS": 0,
+                        "SHORT_CALLS": 0,
+                        "SHORT_PUTS": 0
+                    }
                     d[exp_dt]['dow'] = exp_dt.weekday()
+                    c[exp_dt]['dow'] = exp_dt.weekday()
                 key = "{}_{}".format(eti['putCall'], et['positionEffect'])
                 if key not in d[exp_dt]:
                     d[exp_dt][key] = 0
@@ -168,6 +181,9 @@ def weekly_performance(history=45):
     df['CALL_TOTAL'] = df['CALL_OPENING']+df['CALL_CLOSING']
     df['PUT_TOTAL'] = df['PUT_OPENING']+df['PUT_CLOSING']
     df['TOTAL'] = df['CALL_TOTAL'] + df['PUT_TOTAL']
+    cdf = pd.DataFrame.from_dict(c, orient='index')
+    cdf['NET_CALLS'] = cdf['SHORT_CALLS'] + cdf['LONG_CALLS']
+    cdf['NET_PUTS'] = cdf['SHORT_PUTS'] + cdf['LONG_PUTS']
     return render_template(
         "expiration_performance.html",
         EP=df.loc[
@@ -392,11 +408,55 @@ def sut_test(pjson, sutmax=-1):
     res.append(unweighed_calc)
     return res
 
+
+def sut_by_exp(pjson, sutmax=-1):
+    res = []
+    unweighed_calc = {
+        'CALL_COUNT': 0,
+        'LONG_CALL': 0,
+        'SHORT_CALLS': 0,
+        'CALL_REMAINING': sutmax,
+        'CALL_PCT_USED': 0,
+        'PUT_COUNT': 0,
+        'PUT_REMAINING': sutmax,
+        'PUT_PCT_USED': 0,
+        "type": "unweighted"
+    }
+    #print(json.dumps(unweighed_calc, indent=4))
+    d = {}
+    for pos in pjson:
+        #pdf['edate'] = pd.to_datetime(pdf['symbol'].str.split("_", expand=True).iloc[:,1].str.slice(start=0, stop=6), format='%m%d%y', errors='ignore')
+        p_ins = pos['instrument']
+        if p_ins['assetType'] != "OPTION":
+            continue
+        try:
+            otype = pos['instrument']['putCall']
+            count_type = otype  + "_COUNT"
+            remaining_type =  otype + "_REMAINING"
+        except KeyError as ke:
+            print(json.dumps(pos, indent=4))
+            print(ke)
+            sys.exit(1)
+        unweighed_calc[count_type] -= pos['shortQuantity']
+        unweighed_calc[count_type] += pos['longQuantity']
+        unweighed_calc[remaining_type] -= pos['shortQuantity']
+        unweighed_calc[remaining_type] += pos['longQuantity']
+    #print(unweighed_calc)
+    if unweighed_calc["CALL_REMAINING"] > sutmax:
+        unweighed_calc["CALL_REMAINING"] = sutmax
+    if unweighed_calc["PUT_REMAINING"] > sutmax:
+        unweighed_calc["PUT_REMAINING"] = sutmax
+    unweighed_calc["CALL_PCT_USED"] = -1*round((unweighed_calc['CALL_COUNT']/sutmax)*100, 2)
+    unweighed_calc["PUT_PCT_USED"] = -1*round((unweighed_calc['PUT_COUNT']/sutmax)*100, 2)
+    res.append(unweighed_calc)
+    return res
+
+
 def calc_account_data(client:TDClient, conf: Config, adata):
     acc = client.get_account(conf.accountnum).json()['securitiesAccount']
     adata['NLV'] = acc['currentBalances']['liquidationValue']
-    adata['Available_BP'] = acc['currentBalances']['buyingPowerNonMarginableTrade']
-    adata['BPu'] = 1-adata['Available_BP']/float(adata['NLV'])
+    adata['BP_Available'] = acc['currentBalances']['buyingPowerNonMarginableTrade']
+    adata['BPu'] = 1-adata['BP_Available']/float(adata['NLV'])
     adata['BPu'] = round(adata['BPu']*100, 2)
 
     adata['Starting_NLV'] = acc['initialBalances']['liquidationValue']

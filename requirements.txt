@@ -1,0 +1,5 @@
+pandas
+seaborn
+tda-api
+flask
+streamlit
