@@ -84,11 +84,11 @@ def get_outstanding_premium_by_expiration(plot_type):
             raw_exp = raw[4] + raw[5] + raw[0] + raw[1] + raw[2] + raw[3]
             if raw_exp not in p:
                 p[raw_exp] = {
-                "mark": 0.0,
-                "opening_price": 0.0
+                "Current Mark": 0.0,
+                "Opening Price": 0.0
             }
-            p[raw_exp]['mark'] += abs(pentry['marketValue'])
-            p[raw_exp]['opening_price'] += (
+            p[raw_exp]['Current Mark'] += abs(pentry['marketValue'])
+            p[raw_exp]['Opening Price'] += (
                 (pentry['longQuantity'] + pentry['shortQuantity']) * pentry['averagePrice']*100
             )
     for exp in p:
@@ -100,9 +100,26 @@ def get_outstanding_premium_by_expiration(plot_type):
     return df
     #print(df.head())
 
+def get_otm_df():
+    global CONFIG
+    conf = CONFIG
+    #print(conf)
+    client = tda.auth.easy_client(conf.apikey, conf.callbackuri, conf.tokenpath)
+    acc_json = client.get_account(conf.accountnum, fields=[fb.FIELDS.POSITIONS]).json()
+    accdata = acc_json['securitiesAccount']
+    positions = accdata['positions']
+    df = fb.get_red_alert_df2(client, positions)
+    df['expiration'] = "000101"
+    for idx in df.index:
+        sym = df.loc[idx,'symbol']
+        raw = sym.split("_")[1][0:6]
+        raw_exp = raw[4] + raw[5] + raw[0] + raw[1] + raw[2] + raw[3]
+        df.loc[idx, 'expiration'] = raw_exp
+    return df.drop(columns='symbol')
 
 fig = None
 ax = None
+table = None
 
 with st.expander(
     "Plot Selection",
@@ -112,11 +129,22 @@ with st.expander(
         "Plot what?",
         (
             "None",
+            "Percent OTM",
             "Open Contracts",
             "Outstanding premium from open positions"
         ),
         index=0
     )
+    if plot_what == "Percent OTM":
+        plot_by = st.selectbox(
+            "Show - Percent OTM by?",
+            (
+                "None",
+                "Table",
+                "Total",
+                "By Expiration and type"
+            )
+        )
     if plot_what == "Open Contracts":
         plot_by = st.selectbox(
             "Open Contract - By:",
@@ -130,7 +158,8 @@ with st.expander(
                 "Open Contracts by Expiration - How?",
                 (
                     "None",
-                    "Barplot"
+                    "Barplot",
+                    "Table"
                 ),
                 index=0
             )
@@ -164,7 +193,8 @@ with st.expander(
                 "Plot - Outstanding Premium by expiration how?",
                 (
                     "None",
-                    "Barplot"
+                    "Barplot",
+                    "Table"
                 ),
                 index=0
             )
@@ -173,8 +203,8 @@ with st.expander(
                     "Measures to show",
                     (
                         "All",
-                        "Sold",
-                        "Marks"
+                        "Opening Price",
+                        "Current Mark"
                     ),
                     index=0
                 )
@@ -199,7 +229,32 @@ with st.container():
                     ax.set_title("Outstanding Premium barplot by expiration")
                     for container in ax.containers:
                         ax.bar_label(container)
-if fig is None:
-    st.write("No Plot To Show")
-else:
+                if plot_type == "Table":
+                    table = get_outstanding_premium_by_expiration(plot_type).sort_values("Expiration")
+                    print(type(table))
+        elif plot_what == "Percent OTM":
+            if plot_by != "None":
+                table = get_otm_df()
+                if plot_by == "Total":
+                    table['otm'] = table['otm']*100
+                    fig, ax = plt.subplots()
+                    sns.histplot(ax=ax, data=table, x='otm')
+                    fig.suptitle("Histogram of position %OTM")
+                    ax.set_xlabel("% OTM")
+                if plot_by == "By Expiration and type":
+                    table['otm'] = table['otm']*100
+                    table.loc[table['ctype']=='C','ctype'] = "Call"
+                    table.loc[table['ctype']=='P','ctype'] = "Put"
+                    fg = sns.FacetGrid(data=table, col='expiration', row='ctype')
+                    fig = fg.fig
+                    fg.map_dataframe(sns.histplot, x="otm")
+                    fig.suptitle("Position %OTM histogram for each contract type and expiration")
+                    fig.tight_layout()
+
+
+if fig is not None:
     st.pyplot(fig)
+elif table is not None:
+    st.dataframe(table)
+else:
+    st.write("No Plot To Show")

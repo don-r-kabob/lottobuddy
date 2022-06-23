@@ -13,7 +13,7 @@ from streamlit_autorefresh import st_autorefresh
 
 refresh_count = 0
 st.set_page_config(layout="wide")
-#st_autorefresh(1000*30, key=refresh_count)
+st_autorefresh(1000*30, key=refresh_count)
 
 
 #### Globals
