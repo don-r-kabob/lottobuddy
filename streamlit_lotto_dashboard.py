@@ -11,9 +11,10 @@ from streamlit_autorefresh import st_autorefresh
 
 ## Settings commands
 
+REFRESH_TIME_MS = 1000*120
 refresh_count = 0
 st.set_page_config(layout="wide")
-st_autorefresh(1000*30, key=refresh_count)
+st_autorefresh(REFRESH_TIME_MS, key=refresh_count)
 
 
 #### Globals
@@ -107,9 +108,9 @@ def main(**argv):
             ["Percent Used", int(mdf['PUT_PCT_USED'])]
         ]
         #sut_col1.write(method)
-        sut_col1.header("Call SUT")
+        sut_col1.subheader("Call SUT")
         sut_col1.table(calls)
-        sut_col2.header("Put SUT")
+        sut_col2.subheader("Put SUT")
         sut_col2.table(puts)
         #sut_col2.table(sdf.loc[method,:].T)
 

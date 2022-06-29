@@ -1,3 +1,7 @@
+import datetime
+from datetime import datetime, timedelta
+
+import matplotlib
 import streamlit as st
 import pandas as pd
 import seaborn as sns
@@ -117,6 +121,50 @@ def get_otm_df():
         df.loc[idx, 'expiration'] = raw_exp
     return df.drop(columns='symbol')
 
+def get_pmtlt_db_conn():
+    import appdirs
+    from appdirs import user_data_dir, user_config_dir
+    from pathlib import Path
+    import sqlite3
+    import sqlalchemy
+    global CONFIG
+    conf = CONFIG
+    PACKAGE_NAME = "pmtlottotracker"
+    AUTHOR = "PMTraders"
+    CONFIG_DIR = user_config_dir(appname=PACKAGE_NAME, appauthor=AUTHOR)
+    CONFIG_PATH = Path(CONFIG_DIR, "config.toml")
+    DATA_DIR = user_data_dir(appname=PACKAGE_NAME, appauthor=AUTHOR)
+    DB_PATH = Path(DATA_DIR, "Lotto-Tracker.db")
+    uri = "sqlite:///{}".format(DB_PATH)
+    print(uri)
+    conn = sqlalchemy.create_engine(uri)
+    print(conn)
+    return conn
+
+def get_daily_premium_sold(STARTDATE=None):
+    global CONFIG
+    conf = CONFIG
+    pmtlt_conn = get_pmtlt_db_conn()
+    q = """
+    SELECT option_symbol, date, price, filled_quantity, underlying_symbol, asset_type, instruction, status
+    FROM orders_history
+    WHERE status='FILLED'
+    """
+    if STARTDATE is not None:
+        q = q + f" AND date > date({STARTDATE})"
+    df = pd.read_sql_query(q, pmtlt_conn)
+
+    df['date'] = pd.to_datetime(df['date'])
+    df['total'] = df['price'] * df['filled_quantity']
+    df.loc[df['instruction']=="BUY_TO_CLOSE",'total'] = df.loc[df['instruction']=="BUY_TO_CLOSE",'total'] * -1
+    df.loc[df['instruction']=="BUY_TO_OPEN",'total'] = df.loc[df['instruction']=="BUY_TO_OPEN",'total'] * -1
+    client = tda.auth.easy_client(conf.apikey, conf.callbackuri, conf.tokenpath)
+    #print(df.head())
+    #print(df.info())
+    return df
+
+
+
 fig = None
 ax = None
 table = None
@@ -131,10 +179,34 @@ with st.expander(
             "None",
             "Percent OTM",
             "Open Contracts",
-            "Outstanding premium from open positions"
+            "Outstanding premium from open positions",
+            "Daily Premium"
         ),
         index=0
     )
+    if plot_what == "Daily Premium":
+        days_back_str = st.text_input(
+            "How many days back?",
+            "14"
+        )
+        plot_by = st.selectbox(
+            "Show daily premium by?",
+            (
+                "Date",
+            ),
+            index=0
+        )
+        plot_type = st.selectbox(
+            "How to view daily premium?",
+            (
+                "Table",
+                "Barplot",
+                "Regplot"
+            ),
+            index=0
+        )
+        days_back = datetime.today() - timedelta(days=int(days_back_str))
+
     if plot_what == "Percent OTM":
         plot_by = st.selectbox(
             "Show - Percent OTM by?",
@@ -157,29 +229,11 @@ with st.expander(
             plot_type = st.selectbox(
                 "Open Contracts by Expiration - How?",
                 (
-                    "None",
-                    "Barplot",
                     "Table"
+                    "Barplot",
                 ),
                 index=0
             )
-            #if plot_type == "Barplot":
-            #    plot_by = st.selectbox(
-            #        "Plot - Open Contracts barplot by expiration:",
-                    #(
-                     #   "None",
-                     #   "Expiration"
-                    #)
-                #)
-                #if plot_by == "Expiration":
-                #    plot_type = st.selectbox(
-                #    "Plot Type",
-                #    (
-                #        "None",
-                #        "Barplot"
-                #    ),
-                #    index=0
-                #)
     if plot_what == "Outstanding premium from open positions":
         plot_by = st.selectbox(
             "Plot - Outstanding premium By?",
@@ -217,6 +271,55 @@ with st.container():
             if plot_by == "Expiration":
                 if plot_type == "Barplot":
                     fig, ax = plot_open_contracts_by_expiration(plot_type)
+        elif plot_what == "Daily Premium":
+            order_history_df = get_daily_premium_sold()
+            table = trimmed_df = pd.DataFrame(
+                order_history_df.loc[order_history_df['date'] >= days_back, :].groupby('date')['total'].sum()
+            ).reset_index()
+            #print(table.head())
+            #print(table.info())
+            table['total'] = table['total']*100
+            table['date'] = table['date'].dt.strftime("%Y-%m-%d")
+            if plot_type == "Barplot":
+                #min_width = 6
+                #factor = 1.5
+                #print("lenght", len(table['date']))
+                #if int(len(table['date']) / factor) > min_width:
+                #    min_width = int((len(table['date']) / factor)+0.5)
+                #height = int((min_width*3)/2)
+                fig, ax = plt.subplots()
+                sns.barplot(
+                    ax=ax,
+                    data=table,
+                    x="date",
+                    y="total"
+                )
+                for xtl in ax.get_xticklabels():
+                    xtl.set_rotation(90)
+                if int(days_back_str) < 21:
+                    for container in ax.containers:
+                        ax.bar_label(container)
+
+                fig.suptitle("Daily premium sold since {}".format(days_back.strftime("%Y-%m-%d")))
+                fig.tight_layout()
+            if plot_type == "Regplot":
+                lmp = sns.lmplot(
+                    #ax=ax,
+                    data=table,
+                    x="date",
+                    y="total"
+                )
+                fig = lmp.figure
+                #for xtl in ax.get_xticklabels():
+               #     xtl.set_rotation(90)
+                #if int(days_back_str) < 21:
+                #    for container in ax.containers:
+                 #       ax.bar_label(container)
+
+
+
+            #table = order_history_df
+
         elif plot_what == "Outstanding premium from open positions":
             if plot_by == "Expiration":
                 if plot_type == "Barplot":
@@ -229,6 +332,7 @@ with st.container():
                     ax.set_title("Outstanding Premium barplot by expiration")
                     for container in ax.containers:
                         ax.bar_label(container)
+                    fig.tight_layout()
                 if plot_type == "Table":
                     table = get_outstanding_premium_by_expiration(plot_type).sort_values("Expiration")
                     print(type(table))
